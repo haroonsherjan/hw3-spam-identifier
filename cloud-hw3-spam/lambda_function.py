@@ -1,6 +1,8 @@
 import os
+import io
 import boto3
 import json
+import csv
 import email
 from sms_spam_classifier_utilities import one_hot_encode
 from sms_spam_classifier_utilities import vectorize_sequences
@@ -18,9 +20,10 @@ def parseEmailBody(msg):
     if msg.is_multipart():
         for p in msg.get_payload():
             body += p.get_payload()
+            break
     else:
         body += msg.get_payload(decode=True)
-    return [body.replace('\r', ' ').replace('\n',' ')]
+    return body.replace('\r', ' ').replace('\n',' ')
 
 
 def getEmail(event):
@@ -37,25 +40,13 @@ def getEmail(event):
 def respondToEmail(msg, spamResult):
     # The email body for recipients with non-HTML email clients.
     BODY_TEXT = ("We received your email sent at {received} with the subject {subject}\r\n"
-                 "Here is a 240 character sample of the email body: {body}\r\n"
+                 "Here is a 240 character sample of the email body:\r\n {body}\r\n"
                  "The email was categorized as {classification} with a {confidenceScore}% confidence"
                  )
 
-
-    BODY_HTML = """<html>
-    <head></head>
-    <body>
-      <h1>Amazon SES Test (SDK for Python)</h1>
-      <p>This email was sent with
-        <a href='https://aws.amazon.com/ses/'>Amazon SES</a> using the
-        <a href='https://aws.amazon.com/sdk-for-python/'>
-          AWS SDK for Python (Boto)</a>.</p>
-    </body>
-    </html>
-                """
-
     label = 'Spam' if (spamResult['predicted_label'][0][0] == 1.0) else 'Not Spam'
-
+    percentage = round(spamResult['predicted_probability'][0][0]*100, 2)
+    score = percentage if (spamResult['predicted_label'][0][0] == 1.0) else (100 - percentage)
     #Provide the contents of the email.
     response = ses.send_email(
         Destination={
@@ -65,17 +56,13 @@ def respondToEmail(msg, spamResult):
         },
         Message={
             'Body': {
-                'Html': {
-                    'Charset': CHARSET,
-                    'Data': BODY_HTML,
-                },
                 'Text': {
                     'Charset': CHARSET,
                     'Data': BODY_TEXT.format(received=msg['Received'][msg['Received'].find(';') + 2:],
                                              subject=msg['Subject'],
                                              body=parseEmailBody(msg),
                                              classification=label,
-                                             confidenceScore=spamResult['predicted_probability'][0][0]
+                                             confidenceScore=score
                                              ),
                 },
             },
@@ -89,7 +76,7 @@ def respondToEmail(msg, spamResult):
 
 
 def checkForSpam(body):
-    one_hot_test_messages = one_hot_encode(body, vocabulary_length)
+    one_hot_test_messages = one_hot_encode([body], vocabulary_length)
     encoded_test_messages = vectorize_sequences(one_hot_test_messages, vocabulary_length)
     response = runtime.invoke_endpoint(EndpointName=ENDPOINT_NAME,
                                        ContentType='application/json',
@@ -101,6 +88,7 @@ def checkForSpam(body):
 def lambda_handler(event, context):
     msg = getEmail(event)
     body = parseEmailBody(msg)
+    print(body)
     spamResult = checkForSpam(body)
     print(spamResult)
     respondToEmail(msg, spamResult)
