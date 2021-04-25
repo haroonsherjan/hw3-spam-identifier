@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Metadata:
+  Generator: "former2"
+Description: ""
+Resources:
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: "cloud-hw3-bucket"
+      NotificationConfiguration:
+        LambdaConfigurations:
+          -
+            Event: "s3:ObjectCreated:Put"
+            Function: !GetAtt LambdaFunction.Arn
+
+  S3BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Id: "Policy1618946204393"
+        Statement:
+          -
+            Sid: "Stmt1618946199827"
+            Effect: "Allow"
+            Principal: "*"
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+            Resource: !Sub "arn:aws:s3:::${S3Bucket}/*"
+
+  LambdaFunction:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Description: ""
+      Environment:
+        Variables:
+          ENDPOINT_NAME: "sms-spam-classifier-mxnet-2021-04-24-18-01-54-871"
+      FunctionName: "cloud-hw3-spam"
+      Handler: "lambda_function.lambda_handler"
+      Code:
+        S3Bucket: "prod-04-2014-tasks"
+        S3Key: !Sub "/snapshots/${AWS::AccountId}/cloud-hw3-spam-47ca7f05-60d8-4ec9-901c-ba079dc2a641"
+        S3ObjectVersion: "KTiXr4elFI._6jar1MK05PlrjrLr4Pq6"
+      MemorySize: 128
+      Role: !GetAtt IAMRole.Arn
+      Runtime: "python3.8"
+      Timeout: 3
+      TracingConfig:
+        Mode: "PassThrough"
+      Layers:
+        - !Sub "arn:aws:lambda:${AWS::Region}:770693421928:layer:Klayers-python38-numpy:16"
+
+  Route53RecordSet:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Ref Route53RecordSet2
+      Type: "MX"
+      TTL: 1800
+      ResourceRecords:
+        - !Sub "10 inbound-smtp.${AWS::Region}.amazonaws.com"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet2:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Ref Route53RecordSet3
+      Type: "NS"
+      TTL: 172800
+      ResourceRecords:
+        - "ns-1699.awsdns-20.co.uk."
+        - "ns-729.awsdns-27.net."
+        - "ns-1514.awsdns-61.org."
+        - "ns-11.awsdns-01.com."
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet3:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: "sherjan.net."
+      Type: "SOA"
+      TTL: 900
+      ResourceRecords:
+        - "ns-1699.awsdns-20.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet4:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "_amazonses.${Route53RecordSet}"
+      Type: "TXT"
+      TTL: 1800
+      ResourceRecords:
+        - "\"JgDstjuL9nS+439Is7zQ1mM25UQDNsv+OeqIaUJaazk=\""
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet5:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "2hvsa25pkl7zxsfoqdo4iyxq2lunioik._domainkey.${Route53RecordSet}"
+      Type: "CNAME"
+      TTL: 1800
+      ResourceRecords:
+        - "2hvsa25pkl7zxsfoqdo4iyxq2lunioik.dkim.amazonses.com"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet6:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "lcri5qpiinzadqxbofc6ddhgjn4uj4nj._domainkey.${Route53RecordSet}"
+      Type: "CNAME"
+      TTL: 1800
+      ResourceRecords:
+        - "lcri5qpiinzadqxbofc6ddhgjn4uj4nj.dkim.amazonses.com"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet7:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "so7m5tc3orbptgi3ccyulra42llv6fid._domainkey.${Route53RecordSet}"
+      Type: "CNAME"
+      TTL: 1800
+      ResourceRecords:
+        - "so7m5tc3orbptgi3ccyulra42llv6fid.dkim.amazonses.com"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet8:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "haroon.${Route53RecordSet}"
+      Type: "MX"
+      TTL: 300
+      ResourceRecords:
+        - !Sub "10 feedback-smtp.${AWS::Region}.amazonses.com"
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53RecordSet9:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      Name: !Sub "haroon.${Route53RecordSet}"
+      Type: "TXT"
+      TTL: 300
+      ResourceRecords:
+        - "\"v=spf1 include:amazonses.com ~all\""
+      HostedZoneId: !Ref Route53HostedZone
+
+  Route53HostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      Name: "sherjan.net."
+
+  SageMakerNotebookInstance:
+    Type: "AWS::SageMaker::NotebookInstance"
+    Properties:
+      NotebookInstanceName: "cloud-hw3-notebook"
+      InstanceType: "ml.t2.medium"
+      RoleArn: !GetAtt IAMRole2.Arn
+      DirectInternetAccess: "Enabled"
+      VolumeSizeInGB: 5
+      RootAccess: "Enabled"
+
+  IAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      RoleName: "cloud-hw3-spam-role-pidgpe7b"
+      AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+        - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/AWSLambdaBasicExecutionRole-09b7f432-6612-487d-9f2c-eea2d0f543f6"
+
+  IAMRole2:
+    Type: "AWS::IAM::Role"
+    Properties:
+      Path: "/service-role/"
+      RoleName: "AmazonSageMaker-ExecutionRole-20210410T103224"
+      AssumeRolePolicyDocument: "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"sagemaker.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"
+      MaxSessionDuration: 3600
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
+        - !Sub "arn:aws:iam::${AWS::AccountId}:policy/service-role/AmazonSageMaker-ExecutionPolicy-20210410T103224"
+      Description: "SageMaker execution role created from the SageMaker AWS Management Console."
+
